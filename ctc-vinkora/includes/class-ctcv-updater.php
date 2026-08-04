@@ -46,6 +46,11 @@ final class CTCV_Updater {
 
 	/** Lee el último release (cacheado). Devuelve array vacío si no hay o si falla. */
 	private function get_release() {
+		// "Buscar de nuevo" en Escritorio -> Actualizaciones (update-core.php?force-check=1) fuerza
+		// un refresco inmediato, sin esperar la caché de 12 h. Solo limpia un transient (inocuo).
+		if ( isset( $_GET['force-check'] ) && '' !== (string) $_GET['force-check'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			delete_transient( $this->cache_key );
+		}
 		$cached = get_transient( $this->cache_key );
 		if ( false !== $cached ) {
 			return is_array( $cached ) ? $cached : array();
