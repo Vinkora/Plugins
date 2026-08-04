@@ -42,11 +42,11 @@ final class CTCV_Admin {
 	}
 
 	public function register() {
-		// CRÍTICO: garantizar que la opción EXISTA antes de que options.php procese el guardado
-		// (admin_init corre antes). Si no existe, update_option cae en add_option y WordPress
-		// ejecuta el sanitize DOS veces; la 2ª pasada no lleva `_active_tab` y devolvería los
-		// defaults, borrando lo recién escrito (bug "no guarda el número"). Con la opción ya
-		// creada, el guardado es una sola pasada y el merge por pestaña funciona.
+		// Asegura la fila de la opción en BD. OJO: crear la opción con defaults() NO evita la doble
+		// ejecución del sanitize en el primer guardado (queda en estado "valor == defaults()", que
+		// WordPress igual enruta por update_option->add_option -> 2 pasadas). Lo que REALMENTE impide
+		// perder el dato es conservar `_active_tab` en la salida del sanitize (ver CTCV_Options), y que
+		// el número nacional/código sean campos reales combinados en el servidor.
 		if ( false === get_option( CTCV_Options::OPTION, false ) ) {
 			add_option( CTCV_Options::OPTION, CTCV_Options::defaults() );
 		}
@@ -119,15 +119,26 @@ final class CTCV_Admin {
 	 *  Campo de número con selector de país (buscable, sin dependencias)
 	 * ------------------------------------------------------------------ */
 	private function phone_field( $o ) {
+		// Valores de arranque. El número nacional y el código de país son CAMPOS REALES (se envían
+		// aunque el JS no corra); el servidor recompone `phone`. Migración: si venimos de una versión
+		// que solo guardaba `phone` completo, derivamos el nacional quitándole el código de país.
+		$iso  = ( '' !== $o['phone_iso'] ) ? $o['phone_iso'] : 'co';
+		$cc   = $o['phone_cc'];
+		$natl = $o['phone_national'];
+		if ( '' === $natl && '' !== $o['phone'] ) {
+			$full = $o['phone'];
+			$natl = ( '' !== $cc && 0 === strpos( $full, $cc ) ) ? substr( $full, strlen( $cc ) ) : $full;
+		}
 		$h  = '<div class="ctcv-phone">';
 		$h .= '<div class="ctcv-cc-box">';
 		$h .= '<button type="button" class="ctcv-cc-toggle" id="ctcv-cc-toggle" aria-haspopup="listbox" aria-expanded="false">';
-		$h .= '<span class="ctcv-cc-flag" id="ctcv-cc-flag"></span><span class="ctcv-cc-dial" id="ctcv-cc-dial">+__</span><span class="ctcv-cc-caret"></span></button>';
+		$h .= '<span class="ctcv-cc-flag" id="ctcv-cc-flag"></span><span class="ctcv-cc-dial" id="ctcv-cc-dial">+' . esc_html( $cc ) . '</span><span class="ctcv-cc-caret"></span></button>';
 		$h .= '<div class="ctcv-cc-pop" id="ctcv-cc-pop">';
 		$h .= '<input type="text" id="ctcv-cc-search" placeholder="' . esc_attr__( 'Buscar país o código...', 'ctc-vinkora' ) . '" autocomplete="off">';
 		$h .= '<ul class="ctcv-cc-list" id="ctcv-cc-list" role="listbox"></ul></div></div>';
-		$h .= '<input type="tel" class="regular-text ctcv-natl" id="ctcv-natl" placeholder="300 123 4567" autocomplete="off" inputmode="numeric">';
-		$h .= '<input type="hidden" name="' . esc_attr( $this->name( 'phone' ) ) . '" id="ctcv-phone" value="' . esc_attr( $o['phone'] ) . '">';
+		$h .= '<input type="tel" class="regular-text ctcv-natl" id="ctcv-natl" name="' . esc_attr( $this->name( 'phone_national' ) ) . '" value="' . esc_attr( $natl ) . '" placeholder="300 123 4567" autocomplete="off" inputmode="numeric">';
+		$h .= '<input type="hidden" name="' . esc_attr( $this->name( 'phone_iso' ) ) . '" id="ctcv-phone-iso" value="' . esc_attr( $iso ) . '">';
+		$h .= '<input type="hidden" name="' . esc_attr( $this->name( 'phone_cc' ) ) . '" id="ctcv-phone-cc" value="' . esc_attr( $cc ) . '">';
 		$h .= '</div>';
 		$h .= '<p class="description">' . esc_html__( 'Elige el país (busca por nombre o código) y escribe el número. Se guarda como código + número, solo dígitos.', 'ctc-vinkora' ) . '</p>';
 		return $h;
@@ -245,17 +256,17 @@ final class CTCV_Admin {
 	    flagEl = document.getElementById('ctcv-cc-flag'),
 	    dialEl = document.getElementById('ctcv-cc-dial'),
 	    natl   = document.getElementById('ctcv-natl'),
-	    phone  = document.getElementById('ctcv-phone');
-	if (!toggle || !phone) { return; }
-	var curDial = '';
+	    isoH   = document.getElementById('ctcv-phone-iso'),
+	    ccH    = document.getElementById('ctcv-phone-cc');
+	if (!toggle || !ccH || !isoH) { return; }
 	function flag(iso){
 		try { return iso.toUpperCase().replace(/[A-Z]/g, function(c){ return String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0)); }); }
 		catch(e){ return iso.toUpperCase(); }
 	}
-	function digits(s){ return (s || '').replace(/\D+/g, ''); }
-	function sync(){ phone.value = digits(curDial + (natl.value || '')); }
 	DATA.sort(function(a,b){ return a[1].localeCompare(b[1]); });
-	function setCountry(iso, dial){ curDial = dial; flagEl.textContent = flag(iso); dialEl.textContent = '+' + dial; }
+	// El número nacional y el código son campos REALES (se envían solos). El JS solo actualiza la
+	// vista y los hidden del país; ya NO depende de sincronizar el número para que se guarde.
+	function setCountry(iso, dial){ isoH.value = iso; ccH.value = dial; flagEl.textContent = flag(iso); dialEl.textContent = '+' + dial; }
 	function renderList(f){
 		f = (f || '').toLowerCase().replace(/^\+/, '');
 		var html = '';
@@ -274,19 +285,14 @@ final class CTCV_Admin {
 		var li = e.target; while (li && li.tagName !== 'LI') { li = li.parentNode; }
 		if (!li || !li.getAttribute('data-iso')) { return; }
 		setCountry(li.getAttribute('data-iso'), li.getAttribute('data-dial'));
-		sync(); close(); natl.focus();
+		close(); natl.focus();
 	});
-	natl.addEventListener('input', function(){ sync(); });
 	document.addEventListener('click', function(e){ if (!pop.contains(e.target) && !toggle.contains(e.target)) { close(); } });
-	// Init: separar el número guardado por el código de país más largo que coincida.
-	var stored = digits(phone.value), best = null;
-	for (var j=0;j<DATA.length;j++){
-		var d = DATA[j][2];
-		if (stored.indexOf(d) === 0 && (!best || d.length > best[2].length)) { best = DATA[j]; }
-	}
-	if (best) { setCountry(best[0], best[2]); natl.value = stored.slice(best[2].length); }
-	else if (stored) { curDial = ''; dialEl.textContent = '+'; natl.value = stored; }
-	else { setCountry('co', '57'); } // por defecto Colombia
+	// Init: pinta la bandera/código del país guardado (por ISO). Los campos ya vienen del servidor.
+	var iso = (isoH.value || 'co').toLowerCase(), found = null;
+	for (var j=0;j<DATA.length;j++){ if (DATA[j][0] === iso) { found = DATA[j]; break; } }
+	if (found) { flagEl.textContent = flag(found[0]); dialEl.textContent = '+' + found[2]; ccH.value = found[2]; }
+	else { flagEl.textContent = flag(iso); dialEl.textContent = '+' + (ccH.value || ''); }
 })();
 </script>
 		<?php

@@ -29,7 +29,10 @@ final class CTCV_Options {
 		return array(
 			// -- General --
 			'enabled'              => 1,
-			'phone'                => '',
+			'phone'                => '',            // DERIVADO en el servidor = phone_cc + phone_national (lo lee el front).
+			'phone_iso'            => 'co',          // país elegido (solo para pintar bandera/código en el admin).
+			'phone_cc'             => '57',          // código de país (dígitos), campo REAL enviado.
+			'phone_national'       => '',            // número nacional (dígitos), campo REAL enviado.
 			'greeting'             => 'Hola, quiero mas informacion.',
 			'tooltip'              => 'Hablemos por WhatsApp',
 			'cta_text'             => 'Escribenos por WhatsApp',
@@ -121,7 +124,7 @@ final class CTCV_Options {
 	 * ------------------------------------------------------------------ */
 	public static function tab_keys() {
 		return array(
-			'general'     => array( 'enabled', 'phone', 'greeting', 'tooltip', 'cta_text' ),
+			'general'     => array( 'enabled', 'phone_iso', 'phone_cc', 'phone_national', 'greeting', 'tooltip', 'cta_text' ),
 			'button'      => array( 'style', 'color', 'size', 'size_mobile', 'position', 'offset_bottom', 'offset_side', 'radius', 'pulse', 'cta_mode', 'own_image_url', 'show_desktop', 'show_mobile' ),
 			'greeting'    => array( 'greeting_type', 'greeting_title', 'greeting_body', 'greeting_cta', 'greeting_position', 'greeting_size', 'greeting_auto', 'greeting_delay', 'greeting_color_header', 'greeting_color_body', 'greeting_color_msg', 'form_cta', 'form_fields' ),
 			'agents'      => array( 'agents_enabled', 'agents_title', 'agents_offline_text', 'agents' ),
@@ -194,6 +197,7 @@ final class CTCV_Options {
 			$opts = array();
 		}
 		$opts = wp_parse_args( $opts, self::defaults() );
+		unset( $opts['_active_tab'] ); // clave interna del merge; nunca la exponemos a los lectores.
 
 		// Auto-arreglo: saludo con caracter de reemplazo U+FFFD (BD utf8 sin emoji) -> default.
 		if ( isset( $opts['greeting'] ) && false !== strpos( (string) $opts['greeting'], "\xEF\xBF\xBD" ) ) {
@@ -246,8 +250,16 @@ final class CTCV_Options {
 				continue;
 			}
 			// Especiales.
-			if ( 'phone' === $key ) {
-				$out['phone'] = self::clean_phone( isset( $input['phone'] ) ? $input['phone'] : '' );
+			if ( 'phone_iso' === $key ) {
+				$out['phone_iso'] = isset( $input['phone_iso'] ) ? sanitize_key( $input['phone_iso'] ) : 'co';
+				continue;
+			}
+			if ( 'phone_cc' === $key ) {
+				$out['phone_cc'] = self::clean_phone( isset( $input['phone_cc'] ) ? $input['phone_cc'] : '' );
+				continue;
+			}
+			if ( 'phone_national' === $key ) {
+				$out['phone_national'] = self::clean_phone( isset( $input['phone_national'] ) ? $input['phone_national'] : '' );
 				continue;
 			}
 			if ( 'compact' === $key ) {
@@ -316,6 +328,20 @@ final class CTCV_Options {
 			// Texto simple (resto).
 			$out[ $key ] = isset( $input[ $key ] ) ? sanitize_text_field( $input[ $key ] ) : $d[ $key ];
 		}
+
+		// El número completo es DERIVADO en el servidor = código país + nacional. Se recompone aquí,
+		// así se guarda AUNQUE el JS del selector no corra (los campos son reales, no un hidden por JS).
+		if ( 'general' === $tab ) {
+			$out['phone'] = self::clean_phone( $out['phone_cc'] . $out['phone_national'] );
+		}
+
+		// CRÍTICO — conservar `_active_tab` en la salida. WordPress ejecuta el sanitize DOS veces
+		// cuando la opción se crea por primera vez (update_option -> add_option); en la 2ª pasada
+		// el input = salida de la 1ª (SIN el hidden del formulario). Si no llevamos `_active_tab`,
+		// esa 2ª pasada cae en el `return` de "sin pestaña" y devuelve los defaults, borrando lo
+		// recién guardado (bug "no guarda el número"). Al conservarlo, la 2ª pasada re-aplica la
+		// MISMA pestaña de forma idempotente y el valor sobrevive. get() lo oculta a los lectores.
+		$out['_active_tab'] = $tab;
 
 		return $out;
 	}
