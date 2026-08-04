@@ -115,6 +115,20 @@ final class CTCV_Admin {
 		echo '</form>';
 	}
 
+	/** Matriz de casillas de UTMs/click-ids a incluir en el mensaje. */
+	private function params_matrix( $o ) {
+		$known   = CTCV_Options::known_params();
+		$enabled = is_array( $o['tracked_params'] ) ? $o['tracked_params'] : array();
+		$field   = esc_attr( CTCV_Options::OPTION . '[tracked_params][]' );
+		$h  = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 14px;max-width:840px;background:#fff;border:1px solid #dcdcde;border-radius:6px;padding:12px">';
+		foreach ( $known as $key => $label ) {
+			$checked = in_array( $key, $enabled, true );
+			$h .= '<label style="display:flex;align-items:center;gap:6px;font-family:monospace"><input type="checkbox" name="' . $field . '" value="' . esc_attr( $key ) . '" ' . checked( true, $checked, false ) . '> <span>' . esc_html( $label ) . '</span></label>';
+		}
+		$h .= '</div>';
+		return $h;
+	}
+
 	/* ------------------------------------------------------------------ *
 	 *  Campo de número con selector de país (buscable, sin dependencias)
 	 * ------------------------------------------------------------------ */
@@ -607,7 +621,14 @@ final class CTCV_Admin {
 		echo '<tr><th colspan="2"><h2 style="margin:.3em 0">' . esc_html__( 'UTMs en el mensaje', 'ctc-vinkora' ) . '</h2></th></tr>';
 		$this->row( esc_html__( 'Ventana de atribución', 'ctc-vinkora' ), $this->f_radio( $o, 'attribution', array( 'first' => __( 'Primer clic (first-touch)', 'ctc-vinkora' ), 'last' => __( 'Último clic (last-touch)', 'ctc-vinkora' ) ) ) );
 		$this->row( '<label for="' . esc_attr( $this->id( 'ttl_days' ) ) . '">' . esc_html__( 'Duración de la atribución (días)', 'ctc-vinkora' ) . '</label>', $this->f_number( $o, 'ttl_days', 1, 3650 ) );
-		$this->row( '<label for="' . esc_attr( $this->id( 'extra_params' ) ) . '">' . esc_html__( 'Parámetros extra (click-ids)', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'extra_params', '', 'large-text' ) . '<p class="description">gclid, fbclid, msclkid, ttclid…</p>' );
+		$this->row(
+			esc_html__( 'UTMs a incluir', 'ctc-vinkora' ),
+			$this->params_matrix( $o ) . '<p class="description">' . esc_html__( 'Marca las que quieres que viajen en el mensaje. Por defecto: las 6 UTMs estándar.', 'ctc-vinkora' ) . '</p>'
+		);
+		$this->row(
+			'<label for="' . esc_attr( $this->id( 'extra_params' ) ) . '">' . esc_html__( 'Otros parámetros (personalizados)', 'ctc-vinkora' ) . '</label>',
+			$this->f_text( $o, 'extra_params', '', 'large-text' ) . '<p class="description">' . esc_html__( 'Opcional: otros parámetros de tu URL, separados por coma, aparte de los de arriba.', 'ctc-vinkora' ) . '</p>'
+		);
 		$this->row( '<label for="' . esc_attr( $this->id( 'track_header' ) ) . '">' . esc_html__( 'Encabezado del bloque', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'track_header', '', 'large-text' ) );
 		$this->row( esc_html__( 'Formato del bloque', 'ctc-vinkora' ), $this->f_radio( $o, 'compact', array( '0' => __( 'Legible (una línea por dato)', 'ctc-vinkora' ), '1' => __( 'Compacto', 'ctc-vinkora' ) ) ) );
 		$this->row( esc_html__( 'Datos extra', 'ctc-vinkora' ), $this->f_check( $o, 'include_page', __( 'Página de destino', 'ctc-vinkora' ) ) . ' &nbsp; ' . $this->f_check( $o, 'include_ref', __( 'Referrer', 'ctc-vinkora' ) ) );

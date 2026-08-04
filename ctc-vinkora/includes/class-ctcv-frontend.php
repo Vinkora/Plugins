@@ -234,11 +234,27 @@ final class CTCV_Frontend {
 			$popup = 'greeting';
 		}
 
-		// UTMs.
-		$utm_keys     = array( 'utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_term', 'utm_content' );
+		// UTMs: solo las marcadas en la matriz (tracked_params) + los personalizados (extra_params),
+		// en el orden canónico. `primary` = utm_source + click-ids/personalizados (los que cuentan
+		// como "toque real" de campaña; un utm_content suelto no debe pisar la atribución).
+		$known_order  = array_keys( CTCV_Options::known_params() );
+		$tracked      = is_array( $o['tracked_params'] ) ? $o['tracked_params'] : array();
 		$extra_keys   = array_filter( array_map( 'trim', explode( ',', $o['extra_params'] ) ) );
-		$all_keys     = array_values( array_unique( array_merge( $utm_keys, $extra_keys ) ) );
-		$primary_keys = array_values( array_unique( array_merge( array( 'utm_source' ), $extra_keys ) ) );
+		$ordered      = array();
+		foreach ( $known_order as $k ) {
+			if ( in_array( $k, $tracked, true ) ) {
+				$ordered[] = $k;
+			}
+		}
+		$all_keys     = array_values( array_unique( array_merge( $ordered, $extra_keys ) ) );
+		$utm6         = array( 'utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_term', 'utm_content' );
+		$primary_keys = array();
+		foreach ( $all_keys as $k ) {
+			if ( 'utm_source' === $k || ! in_array( $k, $utm6, true ) ) {
+				$primary_keys[] = $k;
+			}
+		}
+		$primary_keys = array_values( array_unique( $primary_keys ) );
 
 		$tz_offset = (int) round( (float) get_option( 'gmt_offset' ) * 60 );
 

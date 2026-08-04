@@ -3,7 +3,7 @@
  * Plugin Name:       CTC Vinkora
  * Plugin URI:        https://vinkora.net
  * Description:       Click To Chat de Vinkora: botón de WhatsApp con estilos, ventana de saludo, formulario, multi-agente, reglas de visibilidad y rastreo (UTMs + GA4 + Google Tag Manager + Meta Pixel). Universal, autónomo, sin dependencias externas.
- * Version:           2.0.2
+ * Version:           2.0.3
  * Author:            Vinkora
  * Author URI:        https://vinkora.net
  * License:           GPL-2.0-or-later
@@ -27,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'CTCV_VERSION', '2.0.2' );
+define( 'CTCV_VERSION', '2.0.3' );
 define( 'CTCV_FILE', __FILE__ );
 define( 'CTCV_DIR', plugin_dir_path( __FILE__ ) );
 define( 'CTCV_URL', plugin_dir_url( __FILE__ ) );

@@ -90,12 +90,14 @@ final class CTCV_Options {
 			'exclude_ids'          => '',
 			'exclude_cats'         => '',
 
-			// -- Rastreo: UTMs (heredado) --
+			// -- Rastreo: UTMs --
 			'attribution'          => 'first',  // first|last
 			'ttl_days'             => 90,
 			'only_if_utm'          => 1,
 			'track_header'         => '- Referencia (por favor no borrar) -',
-			'extra_params'         => 'gclid, fbclid, wbraid, gbraid, msclkid, ttclid, li_fat_id',
+			// Matriz de UTMs a incluir (marcadas por el usuario). Por defecto = las 6 estándar.
+			'tracked_params'       => array( 'utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_term', 'utm_content' ),
+			'extra_params'         => '',       // otros parámetros personalizados (fuera de la matriz).
 			'include_page'         => 1,
 			'include_ref'          => 1,
 			'compact'              => 0,
@@ -129,7 +131,7 @@ final class CTCV_Options {
 			'greeting'    => array( 'greeting_type', 'greeting_title', 'greeting_body', 'greeting_cta', 'greeting_position', 'greeting_size', 'greeting_auto', 'greeting_delay', 'greeting_color_header', 'greeting_color_body', 'greeting_color_msg', 'form_cta', 'form_fields' ),
 			'agents'      => array( 'agents_enabled', 'agents_title', 'agents_offline_text', 'agents' ),
 			'visibility'  => array( 'vis_front', 'vis_home', 'vis_pages', 'vis_posts', 'vis_archives', 'vis_categories', 'vis_search', 'vis_404', 'vis_cpt', 'include_ids', 'exclude_ids', 'exclude_cats' ),
-			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'extra_params', 'include_page', 'include_ref', 'compact', 'ga4_enabled', 'ga4_event', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event' ),
+			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'tracked_params', 'extra_params', 'include_page', 'include_ref', 'compact', 'ga4_enabled', 'ga4_event', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event' ),
 			'advanced'    => array( 'delay_ms', 'zindex', 'badge_enabled', 'badge_text', 'custom_css' ),
 		);
 	}
@@ -188,16 +190,54 @@ final class CTCV_Options {
 		return array( 'include_ids', 'exclude_ids', 'exclude_cats' );
 	}
 
+	/** UTMs/click-ids conocidos para la matriz de selección (clave => etiqueta). */
+	public static function known_params() {
+		return array(
+			'utm_source'   => 'utm_source',
+			'utm_medium'   => 'utm_medium',
+			'utm_campaign' => 'utm_campaign',
+			'utm_id'       => 'utm_id',
+			'utm_term'     => 'utm_term',
+			'utm_content'  => 'utm_content',
+			'gclid'        => 'gclid · Google Ads',
+			'fbclid'       => 'fbclid · Meta',
+			'wbraid'       => 'wbraid · Google',
+			'gbraid'       => 'gbraid · Google',
+			'msclkid'      => 'msclkid · Bing',
+			'ttclid'       => 'ttclid · TikTok',
+			'li_fat_id'    => 'li_fat_id · LinkedIn',
+		);
+	}
+
 	/* ------------------------------------------------------------------ *
 	 *  Lectura de opciones (con migracion y auto-saneo)
 	 * ------------------------------------------------------------------ */
 	public static function get() {
-		$opts = get_option( self::OPTION, array() );
-		if ( ! is_array( $opts ) ) {
-			$opts = array();
+		$raw = get_option( self::OPTION, array() );
+		if ( ! is_array( $raw ) ) {
+			$raw = array();
 		}
-		$opts = wp_parse_args( $opts, self::defaults() );
+		$opts = wp_parse_args( $raw, self::defaults() );
 		unset( $opts['_active_tab'] ); // clave interna del merge; nunca la exponemos a los lectores.
+
+		// Migración: versiones previas incluían las 6 UTMs fijas + los click-ids en `extra_params`.
+		// Si la opción guardada no tiene `tracked_params`, lo derivamos (6 UTMs + click-ids conocidos
+		// que estuvieran en extra_params) y dejamos `extra_params` solo con los custom.
+		if ( ! array_key_exists( 'tracked_params', $raw ) ) {
+			$known   = array_keys( self::known_params() );
+			$enabled = array( 'utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_term', 'utm_content' );
+			$custom  = array();
+			$old     = array_filter( array_map( 'trim', explode( ',', isset( $raw['extra_params'] ) ? (string) $raw['extra_params'] : '' ) ) );
+			foreach ( $old as $p ) {
+				if ( in_array( $p, $known, true ) ) {
+					$enabled[] = $p;
+				} else {
+					$custom[] = $p;
+				}
+			}
+			$opts['tracked_params'] = array_values( array_unique( $enabled ) );
+			$opts['extra_params']   = implode( ', ', $custom );
+		}
 
 		// Auto-arreglo: saludo con caracter de reemplazo U+FFFD (BD utf8 sin emoji) -> default.
 		if ( isset( $opts['greeting'] ) && false !== strpos( (string) $opts['greeting'], "\xEF\xBF\xBD" ) ) {
@@ -274,8 +314,22 @@ final class CTCV_Options {
 				$out['gtm_id'] = self::clean_gtm_id( isset( $input['gtm_id'] ) ? $input['gtm_id'] : '' );
 				continue;
 			}
+			if ( 'tracked_params' === $key ) {
+				// Matriz de casillas: valida lo enviado contra la lista conocida. Nada marcado = vacío.
+				$allowed = array_keys( self::known_params() );
+				$sel     = ( isset( $input['tracked_params'] ) && is_array( $input['tracked_params'] ) ) ? $input['tracked_params'] : array();
+				$clean   = array();
+				foreach ( $sel as $p ) {
+					$p = sanitize_key( $p );
+					if ( in_array( $p, $allowed, true ) && ! in_array( $p, $clean, true ) ) {
+						$clean[] = $p;
+					}
+				}
+				$out['tracked_params'] = $clean;
+				continue;
+			}
 			if ( 'extra_params' === $key ) {
-				$out['extra_params'] = self::clean_param_list( isset( $input['extra_params'] ) ? $input['extra_params'] : $d['extra_params'] );
+				$out['extra_params'] = self::clean_param_list( isset( $input['extra_params'] ) ? $input['extra_params'] : '' );
 				continue;
 			}
 			if ( 'custom_css' === $key ) {
