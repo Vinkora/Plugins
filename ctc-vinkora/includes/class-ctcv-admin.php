@@ -632,7 +632,11 @@ final class CTCV_Admin {
 		$this->row( '<label for="' . esc_attr( $this->id( 'track_header' ) ) . '">' . esc_html__( 'Encabezado del bloque', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'track_header', '', 'large-text' ) );
 		$this->row( esc_html__( 'Formato del bloque', 'ctc-vinkora' ), $this->f_radio( $o, 'compact', array( '0' => __( 'Legible (una línea por dato)', 'ctc-vinkora' ), '1' => __( 'Compacto', 'ctc-vinkora' ) ) ) );
 		$this->row( esc_html__( 'Datos extra', 'ctc-vinkora' ), $this->f_check( $o, 'include_page', __( 'Página de destino', 'ctc-vinkora' ) ) . ' &nbsp; ' . $this->f_check( $o, 'include_ref', __( 'Referrer', 'ctc-vinkora' ) ) );
-		$this->row( esc_html__( 'Solo si hay UTMs', 'ctc-vinkora' ), $this->f_check( $o, 'only_if_utm', __( 'El tráfico directo ve solo el saludo', 'ctc-vinkora' ) ) );
+		$this->row(
+			esc_html__( 'Detectar origen automáticamente', 'ctc-vinkora' ),
+			$this->f_check( $o, 'auto_source', __( 'Añadir el origen (Google Ads, orgánico, directo, red social…) AUNQUE no uses UTMs', 'ctc-vinkora' ) ) . '<p class="description" style="color:#1d6b2f"><strong>' . esc_html__( 'Recomendado si tus campañas apuntan a páginas normales sin parámetros.', 'ctc-vinkora' ) . '</strong> ' . esc_html__( 'El plugin deduce el origen por el referrer + los click-ids (gclid, fbclid) que Google/Meta añaden solos. Aparece en TODOS los mensajes (incluido "Directo"), no depende de "Solo si hay UTMs".', 'ctc-vinkora' ) . '</p>'
+		);
+		$this->row( esc_html__( 'Solo si hay UTMs', 'ctc-vinkora' ), $this->f_check( $o, 'only_if_utm', __( 'El tráfico directo ve solo el saludo (no aplica si "detectar origen" está activo)', 'ctc-vinkora' ) ) );
 
 		echo '<tr><th colspan="2"><hr><h2 style="margin:.3em 0">' . esc_html__( 'Google Analytics 4', 'ctc-vinkora' ) . '</h2></th></tr>';
 		echo '<tr><td colspan="2"><p class="description" style="margin:0 0 6px">' . esc_html__( 'El plugin NO conecta cuentas: dispara el evento hacia el GA4 que YA tenga tu sitio (Site Kit, GTM o manual) y aparece en esa propiedad. Solo pon el ID de medición abajo si tu sitio todavía NO tiene GA4 y quieres que el plugin lo cargue.', 'ctc-vinkora' ) . '</p></td></tr>';

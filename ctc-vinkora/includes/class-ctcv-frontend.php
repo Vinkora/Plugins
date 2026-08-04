@@ -265,27 +265,22 @@ final class CTCV_Frontend {
 			$popup = 'greeting';
 		}
 
-		// UTMs: solo las marcadas en la matriz (tracked_params) + los personalizados (extra_params),
-		// en el orden canónico. `primary` = utm_source + click-ids/personalizados (los que cuentan
-		// como "toque real" de campaña; un utm_content suelto no debe pisar la atribución).
+		// MOSTRAR (líneas crudas en el mensaje) = matriz marcada + personalizados (orden canónico).
+		// CAPTURAR (en el store) = TODAS las conocidas + personalizados, para que la detección de
+		// origen vea los click-ids (gclid/fbclid…) aunque no estén marcados en la matriz.
 		$known_order  = array_keys( CTCV_Options::known_params() );
 		$tracked      = is_array( $o['tracked_params'] ) ? $o['tracked_params'] : array();
 		$extra_keys   = array_filter( array_map( 'trim', explode( ',', $o['extra_params'] ) ) );
-		$ordered      = array();
+		$display_keys = array();
 		foreach ( $known_order as $k ) {
 			if ( in_array( $k, $tracked, true ) ) {
-				$ordered[] = $k;
+				$display_keys[] = $k;
 			}
 		}
-		$all_keys     = array_values( array_unique( array_merge( $ordered, $extra_keys ) ) );
-		$utm6         = array( 'utm_source', 'utm_medium', 'utm_campaign', 'utm_id', 'utm_term', 'utm_content' );
-		$primary_keys = array();
-		foreach ( $all_keys as $k ) {
-			if ( 'utm_source' === $k || ! in_array( $k, $utm6, true ) ) {
-				$primary_keys[] = $k;
-			}
-		}
-		$primary_keys = array_values( array_unique( $primary_keys ) );
+		$display_keys = array_values( array_unique( array_merge( $display_keys, $extra_keys ) ) );
+		$capture_keys = array_values( array_unique( array_merge( $known_order, $extra_keys ) ) );
+		$click_ids    = array_slice( $known_order, 6 ); // los 7 click-ids (van tras las 6 UTMs).
+		$primary_keys = array_values( array_unique( array_merge( array( 'utm_source' ), $click_ids, $extra_keys ) ) );
 
 		$tz_offset = (int) round( (float) get_option( 'gmt_offset' ) * 60 );
 
@@ -293,7 +288,8 @@ final class CTCV_Frontend {
 			'store'       => 'ctcv_attr',
 			'phone'       => $number,
 			'greeting'    => $greeting,
-			'keys'        => $all_keys,
+			'keys'        => $display_keys,
+			'captureKeys' => $capture_keys,
 			'primary'     => $primary_keys,
 			'attribution' => $o['attribution'],
 			'ttlDays'     => (int) $o['ttl_days'],
@@ -301,6 +297,7 @@ final class CTCV_Frontend {
 			'header'      => $o['track_header'],
 			'includePage' => ! empty( $o['include_page'] ),
 			'includeRef'  => ! empty( $o['include_ref'] ),
+			'autoSource'  => ! empty( $o['auto_source'] ),
 			'compact'     => ! empty( $o['compact'] ),
 			'showDesktop' => ! empty( $o['show_desktop'] ),
 			'showMobile'  => ! empty( $o['show_mobile'] ),
@@ -624,9 +621,10 @@ final class CTCV_Frontend {
 	}
 	function currentParams(){
 		var out = {}, sp;
+		var caps = CFG.captureKeys || CFG.keys; // capturamos TODO lo conocido (para clasificar el origen)
 		try { sp = new URLSearchParams(location.search); } catch(e){ sp = null; }
-		for (var i=0;i<CFG.keys.length;i++){
-			var k = CFG.keys[i], v = null;
+		for (var i=0;i<caps.length;i++){
+			var k = caps[i], v = null;
 			if (sp) { v = sp.get(k); }
 			else { var rx = new RegExp('[?&]'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'=([^&#]*)'); var mm = location.search.match(rx); v = mm ? decodeURIComponent(mm[1].replace(/\+/g,' ')) : null; }
 			if (v !== null && v !== '') { out[k] = v; }
@@ -644,19 +642,51 @@ final class CTCV_Frontend {
 		return st;
 	}
 
-	/* ---- construir mensaje: saludo + campos del formulario + bloque UTM ---- */
+	/* ---- clasificación automática del origen (sin UTMs): pago / orgánico / directo / red ---- */
+	function hostOf(u){ try { return (new URL(u).hostname || '').replace(/^www\./, ''); } catch(e){ return ''; } }
+	function classifySource(p, referrer){
+		// 1. Si hay utm_source manual, se respeta (máxima precisión).
+		if (p.utm_source) { return p.utm_source + (p.utm_medium ? ' / ' + p.utm_medium : ''); }
+		// 2. Click-ids que las plataformas añaden SOLAS a la URL del anuncio (= tráfico de PAGO).
+		if (p.gclid || p.wbraid || p.gbraid) { return 'Google Ads (pago)'; }
+		if (p.msclkid) { return 'Microsoft/Bing Ads (pago)'; }
+		if (p.ttclid)  { return 'TikTok Ads (pago)'; }
+		if (p.li_fat_id) { return 'LinkedIn Ads (pago)'; }
+		if (p.fbclid) { return 'Meta/Facebook (anuncio o clic)'; }
+		// 3. Referrer (de dónde venía).
+		var h = hostOf(referrer || '');
+		if (!h) { return 'Directo'; }
+		var self = (location.hostname || '').replace(/^www\./, '');
+		if (h === self) { return 'Interno'; }
+		if (/(^|\.)google\./.test(h)) { return 'Google (orgánico)'; }
+		if (/(^|\.)(bing|yahoo|duckduckgo|ecosia|yandex|ask)\./.test(h)) { return 'Buscador (orgánico)'; }
+		if (/(^|\.)(facebook|instagram|fb)\./.test(h)) { return 'Meta (orgánico/social)'; }
+		if (h === 't.co' || /(^|\.)(twitter|x)\./.test(h)) { return 'X/Twitter'; }
+		if (/(^|\.)linkedin\./.test(h)) { return 'LinkedIn'; }
+		if (h === 'youtu.be' || /(^|\.)youtube\./.test(h)) { return 'YouTube'; }
+		if (/(^|\.)tiktok\./.test(h)) { return 'TikTok'; }
+		if (/(^|\.)(whatsapp|telegram)\./.test(h) || h === 't.me') { return 'Mensajería'; }
+		return 'Referido: ' + h;
+	}
+
+	/* ---- construir mensaje: saludo + campos del formulario + bloque de origen/UTMs ---- */
 	function buildMessage(greeting, formLines){
 		var st = loadStore() || resolveAttribution();
 		var p = (st && st.params) ? st.params : {};
+		var ref = (st && st.referrer) ? st.referrer : '';
 		var utm = [];
+		// Origen: clasificación automática (siempre útil) o el referrer crudo si se prefiere.
+		if (CFG.autoSource) { utm.push(['origen', classifySource(p, ref)]); }
 		for (var i=0;i<CFG.keys.length;i++){ var k = CFG.keys[i]; if (p[k]) { utm.push([k, p[k]]); } }
 		if (CFG.includePage && st && st.landing) { utm.push(['pagina', st.landing]); }
-		if (CFG.includeRef && st && st.referrer) { utm.push(['origen', st.referrer]); }
+		if (CFG.includeRef && ref && !CFG.autoSource) { utm.push(['origen', ref]); }
 
 		var msg = greeting || '';
 		var parts = [];
 		if (formLines && formLines.length) { parts.push(formLines.map(function(kv){ return kv[0]+': '+kv[1]; }).join('\n')); }
-		if (utm.length && !(CFG.onlyIfUtm && countKeys(p) === 0)) {
+		// Con autoSource siempre hay una línea de origen, así que el bloque se muestra siempre.
+		var showBlock = utm.length && ( CFG.autoSource || !(CFG.onlyIfUtm && countKeys(p) === 0) );
+		if (showBlock) {
 			var block = CFG.compact ? utm.map(function(kv){ return kv[0]+'='+kv[1]; }).join(' | ') : utm.map(function(kv){ return kv[0]+': '+kv[1]; }).join('\n');
 			parts.push((CFG.header ? CFG.header + '\n' : '') + block);
 		}

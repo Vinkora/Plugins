@@ -101,6 +101,7 @@ final class CTCV_Options {
 			'include_page'         => 1,
 			'include_ref'          => 1,
 			'compact'              => 0,
+			'auto_source'          => 1,       // detecta el origen (pago/orgánico/directo/red) sin UTMs.
 
 			// -- Rastreo: analitica --
 			'ga4_enabled'          => 0,
@@ -133,7 +134,7 @@ final class CTCV_Options {
 			'greeting'    => array( 'greeting_type', 'greeting_title', 'greeting_body', 'greeting_cta', 'greeting_position', 'greeting_size', 'greeting_auto', 'greeting_delay', 'greeting_color_header', 'greeting_color_body', 'greeting_color_msg', 'form_cta', 'form_fields' ),
 			'agents'      => array( 'agents_enabled', 'agents_title', 'agents_offline_text', 'agents' ),
 			'visibility'  => array( 'vis_front', 'vis_home', 'vis_pages', 'vis_posts', 'vis_archives', 'vis_categories', 'vis_search', 'vis_404', 'vis_cpt', 'include_ids', 'exclude_ids', 'exclude_cats' ),
-			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'tracked_params', 'extra_params', 'include_page', 'include_ref', 'compact', 'ga4_enabled', 'ga4_event', 'ga4_id', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event', 'pixel_id' ),
+			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'tracked_params', 'extra_params', 'include_page', 'include_ref', 'compact', 'auto_source', 'ga4_enabled', 'ga4_event', 'ga4_id', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event', 'pixel_id' ),
 			'advanced'    => array( 'delay_ms', 'zindex', 'badge_enabled', 'badge_text', 'custom_css' ),
 		);
 	}
@@ -144,7 +145,7 @@ final class CTCV_Options {
 			'enabled', 'pulse', 'show_desktop', 'show_mobile',
 			'agents_enabled',
 			'vis_front', 'vis_home', 'vis_pages', 'vis_posts', 'vis_archives', 'vis_categories', 'vis_search', 'vis_404',
-			'only_if_utm', 'include_page', 'include_ref',
+			'only_if_utm', 'include_page', 'include_ref', 'auto_source',
 			'ga4_enabled', 'gtm_push', 'gtm_inject', 'pixel_enabled',
 			'badge_enabled',
 		);
