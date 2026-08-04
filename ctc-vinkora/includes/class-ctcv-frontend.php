@@ -23,6 +23,37 @@ final class CTCV_Frontend {
 			add_action( 'wp_head', array( $this, 'gtm_head' ), 1 );
 			add_action( 'wp_body_open', array( $this, 'gtm_body' ) );
 		}
+		// Cargar GA4 / Meta Pixel SOLO si el usuario puso el ID (para sitios que no los tienen ya).
+		if ( '' !== $o['ga4_id'] ) {
+			add_action( 'wp_head', array( $this, 'ga4_head' ), 2 );
+		}
+		if ( '' !== $o['pixel_id'] ) {
+			add_action( 'wp_head', array( $this, 'pixel_head' ), 2 );
+		}
+	}
+
+	/* ------------------------------------------------------------------ *
+	 *  Carga opcional de GA4 / Meta Pixel (solo si el sitio no los tiene ya)
+	 * ------------------------------------------------------------------ */
+	public function ga4_head() {
+		$o  = CTCV_Options::get();
+		$id = $o['ga4_id'];
+		if ( '' === $id ) {
+			return;
+		}
+		echo "\n<!-- CTC Vinkora: Google Analytics 4 -->\n";
+		echo '<script async src="https://www.googletagmanager.com/gtag/js?id=' . esc_attr( $id ) . '"></script>' . "\n";
+		echo "<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','" . esc_js( $id ) . "');</script>\n";
+	}
+
+	public function pixel_head() {
+		$o  = CTCV_Options::get();
+		$id = $o['pixel_id'];
+		if ( '' === $id ) {
+			return;
+		}
+		echo "\n<!-- CTC Vinkora: Meta Pixel -->\n";
+		echo "<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','" . esc_js( $id ) . "');fbq('track','PageView');</script>\n";
 	}
 
 	/* ------------------------------------------------------------------ *

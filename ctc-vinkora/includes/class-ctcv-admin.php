@@ -635,8 +635,10 @@ final class CTCV_Admin {
 		$this->row( esc_html__( 'Solo si hay UTMs', 'ctc-vinkora' ), $this->f_check( $o, 'only_if_utm', __( 'El tráfico directo ve solo el saludo', 'ctc-vinkora' ) ) );
 
 		echo '<tr><th colspan="2"><hr><h2 style="margin:.3em 0">' . esc_html__( 'Google Analytics 4', 'ctc-vinkora' ) . '</h2></th></tr>';
+		echo '<tr><td colspan="2"><p class="description" style="margin:0 0 6px">' . esc_html__( 'El plugin NO conecta cuentas: dispara el evento hacia el GA4 que YA tenga tu sitio (Site Kit, GTM o manual) y aparece en esa propiedad. Solo pon el ID de medición abajo si tu sitio todavía NO tiene GA4 y quieres que el plugin lo cargue.', 'ctc-vinkora' ) . '</p></td></tr>';
 		$this->row( esc_html__( 'Activar evento GA4', 'ctc-vinkora' ), $this->f_check( $o, 'ga4_enabled', __( 'Disparar un evento al hacer clic (detecta gtag o dataLayer)', 'ctc-vinkora' ) ) );
 		$this->row( '<label for="' . esc_attr( $this->id( 'ga4_event' ) ) . '">' . esc_html__( 'Nombre del evento', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'ga4_event' ) . '<p class="description">' . esc_html__( 'Recomendado GA4: generate_lead. Por defecto: whatsapp_click.', 'ctc-vinkora' ) . '</p>' );
+		$this->row( '<label for="' . esc_attr( $this->id( 'ga4_id' ) ) . '">' . esc_html__( 'ID de medición (opcional)', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'ga4_id', 'G-XXXXXXX' ) . '<p class="description" style="color:#b32d2e">' . esc_html__( '⚠ Déjalo VACÍO si tu sitio ya tiene GA4 (Site Kit/GTM), o se duplicará. Ponlo solo para que el plugin cargue GA4 en sitios sin analítica.', 'ctc-vinkora' ) . '</p>' );
 
 		echo '<tr><th colspan="2"><hr><h2 style="margin:.3em 0">' . esc_html__( 'Google Tag Manager', 'ctc-vinkora' ) . '</h2></th></tr>';
 		$this->row( esc_html__( 'Empujar al dataLayer', 'ctc-vinkora' ), $this->f_check( $o, 'gtm_push', __( 'Push a dataLayer al clic (para triggers en tu GTM)', 'ctc-vinkora' ) ) );
@@ -645,8 +647,10 @@ final class CTCV_Admin {
 		$this->row( '<label for="' . esc_attr( $this->id( 'gtm_id' ) ) . '">' . esc_html__( 'ID del contenedor', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'gtm_id', 'GTM-XXXXXXX' ) );
 
 		echo '<tr><th colspan="2"><hr><h2 style="margin:.3em 0">' . esc_html__( 'Meta Pixel', 'ctc-vinkora' ) . '</h2></th></tr>';
+		echo '<tr><td colspan="2"><p class="description" style="margin:0 0 6px">' . esc_html__( 'Igual que GA4: dispara el evento hacia el Pixel que YA tenga tu sitio. Pon el ID del Pixel abajo solo si tu sitio todavía no lo tiene y quieres que el plugin lo cargue.', 'ctc-vinkora' ) . '</p></td></tr>';
 		$this->row( esc_html__( 'Activar evento del Pixel', 'ctc-vinkora' ), $this->f_check( $o, 'pixel_enabled', __( 'Disparar fbq(track) al clic (si el Pixel está en la página)', 'ctc-vinkora' ) ) );
 		$this->row( '<label for="' . esc_attr( $this->id( 'pixel_event' ) ) . '">' . esc_html__( 'Evento', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'pixel_event' ) . '<p class="description">' . esc_html__( 'Estándar: Contact, Lead. También vale uno personalizado.', 'ctc-vinkora' ) . '</p>' );
+		$this->row( '<label for="' . esc_attr( $this->id( 'pixel_id' ) ) . '">' . esc_html__( 'ID del Pixel (opcional)', 'ctc-vinkora' ) . '</label>', $this->f_text( $o, 'pixel_id', '1234567890' ) . '<p class="description" style="color:#b32d2e">' . esc_html__( '⚠ Déjalo VACÍO si el Pixel ya está en tu sitio, o se duplicará. Ponlo solo para que el plugin lo cargue.', 'ctc-vinkora' ) . '</p>' );
 		$this->form_close();
 	}
 

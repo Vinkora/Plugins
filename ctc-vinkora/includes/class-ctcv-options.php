@@ -105,12 +105,14 @@ final class CTCV_Options {
 			// -- Rastreo: analitica --
 			'ga4_enabled'          => 0,
 			'ga4_event'            => 'whatsapp_click',
+			'ga4_id'               => '',       // ID de medición G-XXXXXXX (opcional: carga GA4 si el sitio no lo tiene).
 			'gtm_push'             => 0,
 			'gtm_event'            => 'whatsapp_click',
 			'gtm_inject'           => 0,
 			'gtm_id'               => '',
 			'pixel_enabled'        => 0,
 			'pixel_event'          => 'Contact',
+			'pixel_id'             => '',       // ID numérico del Pixel (opcional: carga el Pixel si el sitio no lo tiene).
 
 			// -- Avanzado --
 			'delay_ms'             => 0,
@@ -131,7 +133,7 @@ final class CTCV_Options {
 			'greeting'    => array( 'greeting_type', 'greeting_title', 'greeting_body', 'greeting_cta', 'greeting_position', 'greeting_size', 'greeting_auto', 'greeting_delay', 'greeting_color_header', 'greeting_color_body', 'greeting_color_msg', 'form_cta', 'form_fields' ),
 			'agents'      => array( 'agents_enabled', 'agents_title', 'agents_offline_text', 'agents' ),
 			'visibility'  => array( 'vis_front', 'vis_home', 'vis_pages', 'vis_posts', 'vis_archives', 'vis_categories', 'vis_search', 'vis_404', 'vis_cpt', 'include_ids', 'exclude_ids', 'exclude_cats' ),
-			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'tracked_params', 'extra_params', 'include_page', 'include_ref', 'compact', 'ga4_enabled', 'ga4_event', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event' ),
+			'tracking'    => array( 'attribution', 'ttl_days', 'only_if_utm', 'track_header', 'tracked_params', 'extra_params', 'include_page', 'include_ref', 'compact', 'ga4_enabled', 'ga4_event', 'ga4_id', 'gtm_push', 'gtm_event', 'gtm_inject', 'gtm_id', 'pixel_enabled', 'pixel_event', 'pixel_id' ),
 			'advanced'    => array( 'delay_ms', 'zindex', 'badge_enabled', 'badge_text', 'custom_css' ),
 		);
 	}
@@ -314,6 +316,14 @@ final class CTCV_Options {
 				$out['gtm_id'] = self::clean_gtm_id( isset( $input['gtm_id'] ) ? $input['gtm_id'] : '' );
 				continue;
 			}
+			if ( 'ga4_id' === $key ) {
+				$out['ga4_id'] = self::clean_ga4_id( isset( $input['ga4_id'] ) ? $input['ga4_id'] : '' );
+				continue;
+			}
+			if ( 'pixel_id' === $key ) {
+				$out['pixel_id'] = self::clean_phone( isset( $input['pixel_id'] ) ? $input['pixel_id'] : '' ); // solo dígitos
+				continue;
+			}
 			if ( 'tracked_params' === $key ) {
 				// Matriz de casillas: valida lo enviado contra la lista conocida. Nada marcado = vacío.
 				$allowed = array_keys( self::known_params() );
@@ -411,6 +421,15 @@ final class CTCV_Options {
 			return '';
 		}
 		return ( 0 === strpos( $v, 'GTM-' ) ) ? $v : '';
+	}
+
+	/** ID de medición GA4 G-XXXXXXX (mayúsculas, A-Z 0-9 y guion; debe empezar por G-). */
+	public static function clean_ga4_id( $raw ) {
+		$v = strtoupper( preg_replace( '/[^A-Za-z0-9\-]/', '', (string) $raw ) );
+		if ( '' === $v ) {
+			return '';
+		}
+		return ( 0 === strpos( $v, 'G-' ) ) ? $v : '';
 	}
 
 	/** Lista de claves de query (utm/click-ids): solo A-Z 0-9 _ -, separadas por coma. */
